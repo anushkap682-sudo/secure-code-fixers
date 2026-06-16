@@ -28,7 +28,7 @@ def hash_password(password):
     return hashlib.md5(password.encode()).hexdigest()''',
 }
 
-PROMPT_TEMPLATE = """You are a friendly Python security teacher helping beginner students learn secure coding.
+BEGINNER_PROMPT = """You are a friendly Python security teacher helping beginner students learn secure coding.
 
 IMPORTANT RULES:
 - Only flag REAL security vulnerabilities (SQL injection, hardcoded passwords, weak hashing, command injection, etc.)
@@ -36,24 +36,50 @@ IMPORTANT RULES:
 - Do NOT add try/except blocks, logging, or extra complexity to simple innocent code
 - Do NOT over-engineer simple scripts — a print("hello") is perfectly fine!
 - Keep fixes minimal — only change what is actually a security risk
+- Use simple, friendly, encouraging language — no jargon!
 
 Analyze the following Python code and respond in this EXACT format:
 
 ---VULNERABILITIES---
-If real security issues exist, list them simply. If none, write: "No security issues found! Your code looks good."
+If real security issues exist, list them in simple terms. If none, write: "No security issues found! Your code looks good. 🎉"
 
 ---FIXED_CODE---
-If there were real issues, show the fixed code with simple comments. If no issues, return the original code unchanged.
+If there were real issues, show the fixed code with simple beginner-friendly comments. If no issues, return the original code unchanged.
 
 ---EXPLANATION---
-If issues were fixed, explain in simple beginner-friendly terms what was wrong and why. If no issues, give a short encouraging message.
+If issues were fixed, explain in very simple terms what was wrong, why it matters, and how the fix helps. Use analogies if helpful. If no issues, give a short encouraging message.
 
 Code to analyze:
 {code}
 """
 
-def analyze_code(code: str) -> dict:
-    prompt = PROMPT_TEMPLATE.format(code=code)
+PROFESSIONAL_PROMPT = """You are an expert Python security engineer performing a professional code security audit.
+
+Perform a thorough security analysis and respond in this EXACT format:
+
+---VULNERABILITIES---
+List all security vulnerabilities found, numbered, with:
+- Vulnerability type (e.g. CWE-89, OWASP Top 10 category)
+- Severity level (Critical / High / Medium / Low)
+- Technical explanation of the risk
+
+---FIXED_CODE---
+The complete hardened code with inline comments referencing each fix. Apply security best practices throughout.
+
+---EXPLANATION---
+For each vulnerability:
+- Root cause analysis
+- Potential attack vectors and impact
+- How the fix mitigates the risk
+- Additional security recommendations and best practices
+
+Code to analyze:
+{code}
+"""
+
+def analyze_code(code: str, mode: str) -> dict:
+    prompt_template = BEGINNER_PROMPT if mode == "🎓 Beginner" else PROFESSIONAL_PROMPT
+    prompt = prompt_template.format(code=code)
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": prompt}]
@@ -78,22 +104,34 @@ def analyze_code(code: str) -> dict:
 
 # ── UI ──────────────────────────────────────────────────────────────────────
 
-st.set_page_config(page_title="Secure Code Fixer for Students", page_icon="🔐", layout="wide")
+st.set_page_config(page_title="Secure Code Fixer", page_icon="🔐", layout="wide")
 
 st.title("🔐 Secure Code Fixer")
-st.caption("A learning tool for students — paste your Python code and learn how to make it secure!")
 
-st.info("👋 **New to security?** Try one of the examples below to see how common mistakes are fixed!")
+# Mode toggle
+st.markdown("### Choose Your Mode")
+mode = st.radio(
+    "Who are you?",
+    ["🎓 Beginner", "💼 Professional"],
+    horizontal=True,
+)
 
-# Example buttons
-st.subheader("📚 Try an Example")
-cols = st.columns(3)
-code_input = ""
-for i, (name, code) in enumerate(EXAMPLES.items()):
-    if cols[i].button(f"🔸 {name}", use_container_width=True):
-        code_input = code
+if mode == "🎓 Beginner":
+    st.success("👋 **Beginner Mode** — Simple explanations, friendly language, and helpful examples!")
+else:
+    st.info("💼 **Professional Mode** — Deep technical analysis, CVE references, and full security audit.")
 
 st.markdown("---")
+
+# Example buttons (only in beginner mode)
+code_input = ""
+if mode == "🎓 Beginner":
+    st.subheader("📚 Try an Example")
+    cols = st.columns(3)
+    for i, (name, code) in enumerate(EXAMPLES.items()):
+        if cols[i].button(f"🔸 {name}", use_container_width=True):
+            code_input = code
+    st.markdown("---")
 
 code_input = st.text_area(
     "📋 Paste your Python code here:",
@@ -102,33 +140,37 @@ code_input = st.text_area(
     placeholder="# Paste your Python code here and click Analyze!",
 )
 
-analyze_btn = st.button("🔍 Analyze & Fix My Code", type="primary", use_container_width=True)
+btn_label = "🔍 Analyze & Fix My Code" if mode == "🎓 Beginner" else "🔍 Run Security Audit"
+analyze_btn = st.button(btn_label, type="primary", use_container_width=True)
 
 if analyze_btn:
     if not code_input.strip():
-        st.warning("Please paste some Python code first or try one of the examples above!")
+        st.warning("Please paste some Python code first!")
     elif not os.environ.get("GROQ_API_KEY"):
         st.error("GROQ_API_KEY environment variable not set.")
     else:
-        with st.spinner("🔍 Analyzing your code... hang tight!"):
-            result = analyze_code(code_input)
+        spinner_msg = "🔍 Analyzing your code... hang tight!" if mode == "🎓 Beginner" else "🔍 Running full security audit..."
+        with st.spinner(spinner_msg):
+            result = analyze_code(code_input, mode)
 
         st.markdown("---")
 
         # Vulnerabilities
-        st.subheader("🚨 Issues Found in Your Code")
+        vuln_title = "🚨 Issues Found in Your Code" if mode == "🎓 Beginner" else "🚨 Vulnerabilities Identified"
+        st.subheader(vuln_title)
         if result["vulnerabilities"]:
             st.error(result["vulnerabilities"])
         else:
-            st.success("✅ Great job! No major security issues found.")
+            st.success("✅ No security issues found!")
 
         st.markdown("---")
 
         # Side by side
-        st.subheader("📝 Before & After")
+        code_title = "📝 Before & After" if mode == "🎓 Beginner" else "📝 Code Comparison"
+        st.subheader(code_title)
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown("**❌ Your Original Code**")
+            st.markdown("**❌ Original Code**")
             st.code(code_input, language="python")
         with col2:
             st.markdown("**✅ Fixed & Secure Code**")
@@ -137,7 +179,8 @@ if analyze_btn:
         st.markdown("---")
 
         # Explanation
-        st.subheader("💡 What Did We Learn?")
+        exp_title = "💡 What Did We Learn?" if mode == "🎓 Beginner" else "💡 Technical Analysis & Recommendations"
+        st.subheader(exp_title)
         st.markdown(result["explanation"])
 
         st.download_button(
