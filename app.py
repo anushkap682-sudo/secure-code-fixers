@@ -7,6 +7,8 @@ st.caption("AI-powered tools to help you write and audit secure Python code.")
 
 st.markdown("---")
 
+st.info("👈 Use the sidebar to navigate between tools.")
+
 col1, col2 = st.columns(2)
 
 with col1:
@@ -15,7 +17,6 @@ with col1:
         "Paste a snippet of Python code and instantly get a security-hardened "
         "version with clear explanations. Great for learning and quick fixes."
     )
-    st.page_link("pages/1_Secure_Code_Fixer.py", label="Open Secure Code Fixer →", icon="🛠️")
 
 with col2:
     st.subheader("🕵️ Vulnerability Assessment")
@@ -24,7 +25,6 @@ with col2:
         "report — every file scanned, risks ranked by severity, with an overall "
         "risk score."
     )
-    st.page_link("pages/2_Vulnerability_Assessment.py", label="Open Vulnerability Assessment →", icon="🕵️")
 
 st.markdown("---")
 st.caption("Built with Groq (LLaMA 3.3 70B) + Streamlit")
